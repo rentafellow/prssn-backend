@@ -10,7 +10,10 @@ import { generateToken } from "../utils/token.js";
  */
 export const login = async (req, res) => {
   try {
+    console.log("LOGIN REQUEST BODY:", req.body);
     const { email: inputIdentifier, password } = req.body; // Can be email or username
+    console.log("Parsed identifier:", inputIdentifier, "Length:", inputIdentifier?.length);
+    console.log("Parsed password:", password, "Length:", password?.length);
 
     if (!inputIdentifier || !password) {
         return res.status(400).json({ message: "Email/Username and password are required" });

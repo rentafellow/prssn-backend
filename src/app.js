@@ -15,15 +15,10 @@ import paymentRoutes from "./routes/payment.routes.js";
 const app = express();
 
 // Production: specific origin with environment variable fallback
-const allowedOrigins = [
-  process.env.FRONTEND_URL, 
-  "http://localhost:3000", 
-  "http://localhost:5173", // Vite default
-  "https://rent-a-fellow.vercel.app",
-  "https://rent-a-fellow.vercel.app/", // With trailing slash
-  // Add any Vercel preview deployments
-  /https:\/\/rent-a-fellow-.*\.vercel\.app$/
-].filter(origin => typeof origin === 'string' || origin instanceof RegExp);
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : [];
+allowedOrigins.filter(origin => typeof origin === 'string' || origin instanceof RegExp);
 
 app.use(cors({
   origin: function (origin, callback) {

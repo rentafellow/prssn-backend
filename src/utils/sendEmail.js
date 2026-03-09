@@ -1,42 +1,27 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 /**
- * sendEmail.js - Email Utility using Nodemailer
+ * sendEmail.js - Email Utility using Resend API
  * 
  * Requirements in .env:
- * - EMAIL_USER: Your Gmail address
- * - EMAIL_PASS: Your 16-digit Google App Password
+ * - RESEND_API_KEY: Your Resend API Key
+ * - EMAIL_FROM: The from address (e.g., noreply@prsnn.com)
  */
 
-// Create the transporter globally (or lazily)
-// Using lazy initialization prevents issues if environment variables aren't loaded yet.
-let transporter = null;
+let resendClient = null;
 
-const getTransporter = () => {
-    if (!transporter) {
-        // Validation
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            console.error("❌ CRITICAL: EMAIL_USER or EMAIL_PASS missing in .env file.");
-            // We assume caller handles this, or setup forces it.
+const getResendClient = () => {
+    if (!resendClient) {
+        if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+            console.error("❌ CRITICAL: RESEND_API_KEY or EMAIL_FROM missing in .env file.");
         }
-
-        transporter = nodemailer.createTransport({
-            service: "gmail",
-            pool: true, // Enable connection pooling for faster delivery
-            maxConnections: 5,
-            debug: true, // Show detailed debug info from SMTP
-            logger: true, // Log to console
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS, 
-            },
-        });
+        resendClient = new Resend(process.env.RESEND_API_KEY);
     }
-    return transporter;
+    return resendClient;
 };
 
 /**
- * Sends an email using the configured transporter.
+ * Sends an email using the Resend API.
  * @param {Object} options - Email options
  * @param {string} options.to - Recipient email
  * @param {string} options.subject - Subject line
@@ -46,24 +31,27 @@ const getTransporter = () => {
  */
 export const sendEmail = async ({ to, subject, text, html }) => {
     try {
-        const emailTransporter = getTransporter();
+        const resend = getResendClient();
 
         // Send Logic
-        const info = await emailTransporter.sendMail({
-            from: process.env.EMAIL_USER, // Sender address (must match auth user for Gmail)
+        const { data, error } = await resend.emails.send({
+            from: process.env.EMAIL_FROM, // Sender address
             to,
             subject,
-            text,
-            html,
+            html: html || `<p>${text || ""}</p>`,
+            text: text || "",
         });
 
-        console.log(`✅ Email sent to ${to}. ID: ${info.messageId}`);
-        return { success: true, messageId: info.messageId };
+        if (error) {
+            console.error("❌ Email sending failed via Resend:", error.message);
+            return { success: false, error: error.message };
+        }
+
+        console.log(`✅ Email sent to ${to}. ID: ${data?.id}`);
+        return { success: true, messageId: data?.id };
 
     } catch (error) {
         console.error("❌ Email sending failed:", error.message);
-        // Log full error for debugging if needed
-        // console.error(error); 
         return { success: false, error: error.message };
     }
 };

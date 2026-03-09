@@ -5,10 +5,15 @@ import Booking from "../models/Booking.js";
 import Message from "../models/Message.js";
 
 const initializeSocket = (server) => {
+  const allowedOrigins = process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+    : ["http://localhost:3000"];
+
   const io = new Server(server, {
     cors: {
-      origin: "*", 
-      methods: ["GET", "POST"],
+      origin: allowedOrigins,
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      credentials: true
     },
   });
 

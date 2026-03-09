@@ -22,3 +22,5 @@ yarn-error.log*
 
 # Optional: coverage directory
 coverage/
+
+.early.coverage

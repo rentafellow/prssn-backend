@@ -121,7 +121,7 @@ export const updateBookingStatus = async (req, res) => {
         }
 
         // Verify that the user is the companion for this booking
-        if (booking.companionId.toString() !== userId) {
+        if (booking.companionId.toString() !== userId.toString()) {
             return res.status(403).json({ message: "Not authorized to update this booking." });
         }
 

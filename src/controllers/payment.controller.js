@@ -1,9 +1,13 @@
 
-import Stripe from 'stripe';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 export const createPaymentIntent = async (req, res) => {
     try {
@@ -35,34 +39,49 @@ export const createPaymentIntent = async (req, res) => {
             '60': 1,
             '90': 1.5
         };
-        const hours = durationMap[booking.duration] || 1; // Default to 1 hour if unknown
+        const hours = durationMap[booking.duration] || 1;
         const amount = booking.pricePerHour * hours;
-        
-        // Stripe expects amount in smallest currency unit (e.g., paise for INR)
-        // Ensure checks for minimum amount (Stripe minimum is usually around $0.50 USD equivalent ~ ₹40)
         const amountInPaise = Math.round(amount * 100);
 
-        // Create PaymentIntent
-        const paymentIntent = await stripe.paymentIntents.create({
+        // IDEMPOTENCY: If an order was already created for this booking, reuse it
+        // This prevents duplicate orders if the user clicks Pay multiple times
+        if (booking.razorpayOrderId) {
+            try {
+                const existingOrder = await razorpay.orders.fetch(booking.razorpayOrderId);
+                if (existingOrder && existingOrder.status !== 'paid') {
+                    return res.status(200).json({
+                        orderId: existingOrder.id,
+                        amount: existingOrder.amount,
+                        currency: existingOrder.currency,
+                    });
+                }
+            } catch (fetchErr) {
+                // If fetch fails, fall through and create a new order
+                console.warn("Could not fetch existing Razorpay order, creating new one:", fetchErr.message);
+            }
+        }
+
+        // Create a new Razorpay Order
+        const options = {
             amount: amountInPaise,
-            currency: 'inr',
-            automatic_payment_methods: {
-                enabled: true,
-            },
-            metadata: {
+            currency: 'INR',
+            receipt: booking._id.toString(),
+            notes: {
                 bookingId: booking._id.toString(),
                 requesterId: userId
             }
-        });
+        };
 
-        // Save the intent ID to the booking
-        booking.stripePaymentIntentId = paymentIntent.id;
-        booking.amountPaid = amount;
+        const order = await razorpay.orders.create(options);
+
+        // Save the order ID to the booking
+        booking.razorpayOrderId = order.id;
         await booking.save();
 
         res.status(200).json({
-            clientSecret: paymentIntent.client_secret,
-            amount: amount
+            orderId: order.id,
+            amount: amountInPaise,
+            currency: 'INR'
         });
 
     } catch (error) {
@@ -73,30 +92,43 @@ export const createPaymentIntent = async (req, res) => {
 
 export const verifyPayment = async (req, res) => {
     try {
-        const { paymentIntentId, bookingId } = req.body;
-        
-        if (!paymentIntentId || !bookingId) {
-             return res.status(400).json({ message: "Payment Intent ID and Booking ID are required." });
+        const { razorpayOrderId, razorpayPaymentId, razorpaySignature, bookingId } = req.body;
+
+        if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !bookingId) {
+            return res.status(400).json({ message: "Payment details and Booking ID are required." });
         }
 
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        const body = razorpayOrderId + "|" + razorpayPaymentId;
 
-        if (paymentIntent.status === 'succeeded') {
-            const booking = await Booking.findById(bookingId);
-            if (!booking) {
-                return res.status(404).json({ message: "Booking not found." });
-            }
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(body.toString())
+            .digest('hex');
 
-            if (booking.paymentStatus !== 'paid') {
-                booking.paymentStatus = 'paid';
-                booking.amountPaid = paymentIntent.amount / 100; // Convert back to main unit
-                await booking.save();
-            }
-
-            res.status(200).json({ message: "Payment verified successfully.", booking });
-        } else {
-            res.status(400).json({ message: "Payment not successful yet.", status: paymentIntent.status });
+        if (expectedSignature !== razorpaySignature) {
+            return res.status(400).json({ message: "Payment signature verification failed." });
         }
+
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found." });
+        }
+
+        // Idempotent: If already marked paid (e.g., webhook already processed), just return success
+        if (booking.paymentStatus === 'paid') {
+            return res.status(200).json({ message: "Payment already verified.", booking });
+        }
+
+        // Fetch actual payment amount from Razorpay to store accurately
+        const payment = await razorpay.payments.fetch(razorpayPaymentId);
+
+        booking.paymentStatus = 'paid';
+        booking.razorpayPaymentId = razorpayPaymentId;
+        booking.razorpaySignature = razorpaySignature;
+        booking.amountPaid = payment.amount / 100;
+        await booking.save();
+
+        res.status(200).json({ message: "Payment verified successfully.", booking });
 
     } catch (error) {
         console.error("Verify Payment Error:", error);

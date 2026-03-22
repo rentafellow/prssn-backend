@@ -12,7 +12,7 @@ This directory contains the Node.js/Express backend API for prsnn. It manages th
 -   **File Storage**: Cloudinary (via Multer)
 -   **Email Service**: Nodemailer
 -   **Real-time**: Socket.io
--   **Payments**: Stripe API
+-   **Payments**: Razorpay API
 
 ## Getting Started
 
@@ -42,8 +42,9 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
-# Stripe (Payments)
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+# Razorpay (Payments)
+RAZORPAY_KEY_ID=rzp_test_your_razorpay_key_id
+RAZORPAY_KEY_SECRET=rzp_test_your_razorpay_key_secret
 
 # Email (Nodemailer)
 EMAIL_USER=your_email@gmail.com

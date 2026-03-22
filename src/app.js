@@ -1,4 +1,5 @@
 import express from "express";
+import * as Sentry from "@sentry/node";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
@@ -74,9 +75,23 @@ app.use("/api/payments", paymentRoutes);
 
 
 
+app.get("/debug-sentry", function mainHandler(req, res) {
+  throw new Error("My first Sentry error!");
+});
+
 // 404 Handler
 app.use((req, res, next) => {
   res.status(404).json({ message: "Route not found" });
+});
+
+// The error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
+
+// Optional fallthrough error handler for Sentry (useful if you want to expose res.sentry later)
+app.use(function onError(err, req, res, next) {
+  // We don't overwrite the existing global error handler completely, 
+  // just add Sentry error handler setup.
+  next(err);
 });
 
 // Global Error Handler

@@ -27,7 +27,9 @@ const BookingSchema = new mongoose.Schema({
         enum: ['pending', 'paid', 'failed', 'refunded'], 
         default: 'pending' 
     },
-    stripePaymentIntentId: { type: String },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
+    razorpaySignature: { type: String },
     amountPaid: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });

@@ -1,7 +1,7 @@
 
 import User from "../models/User.js";
 import Admin from "../models/Admin.js";
-
+import Booking from "../models/Booking.js";
 import DeletedAccount from "../models/DeletedAccount.js";
 import { hashPassword } from "../utils/hash.js";
 
@@ -443,6 +443,53 @@ export const getAllUsers = async (req, res) => {
         res.status(200).json(mapped);
     } catch (err) {
         console.error("Get All Users Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const getAllPayments = async (req, res) => {
+    try {
+        if (req.user.role !== 'superadmin') {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        const payments = await Booking.find({ paymentStatus: 'paid' })
+            .populate('requesterId', 'fullName email phoneNumber profilePhotoUrl role')
+            .populate('companionId', 'fullName email phoneNumber profilePhotoUrl role')
+            .sort({ updatedAt: -1 });
+
+        const mapped = payments.map(b => ({
+            _id: b._id,
+            payer: {
+                _id: b.requesterId?._id,
+                fullName: b.requesterId?.fullName || 'Unknown',
+                email: b.requesterId?.email || '',
+                phoneNumber: b.requesterId?.phoneNumber || '',
+                profilePhotoUrl: b.requesterId?.profilePhotoUrl || '',
+                role: b.requesterId?.role || 'user'
+            },
+            recipient: {
+                _id: b.companionId?._id,
+                fullName: b.companionId?.fullName || 'Unknown',
+                email: b.companionId?.email || '',
+                phoneNumber: b.companionId?.phoneNumber || '',
+                profilePhotoUrl: b.companionId?.profilePhotoUrl || '',
+                role: b.companionId?.role || 'companion'
+            },
+            amountPaid: b.amountPaid,
+            duration: b.duration,
+            startTime: b.startTime,
+            scheduledDate: b.scheduledDate,
+            razorpayOrderId: b.razorpayOrderId,
+            razorpayPaymentId: b.razorpayPaymentId,
+            paymentStatus: b.paymentStatus,
+            bookingStatus: b.status,
+            paidAt: b.updatedAt
+        }));
+
+        res.status(200).json(mapped);
+    } catch (err) {
+        console.error("Get All Payments Error:", err);
         res.status(500).json({ error: err.message });
     }
 };

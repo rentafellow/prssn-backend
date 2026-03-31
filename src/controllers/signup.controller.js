@@ -75,9 +75,24 @@ export const signup = async (req, res) => {
     } else {
         console.log("Verification email sent successfully");
         
+        const { generateToken } = await import("../utils/token.js");
+        const token = generateToken({ userId: newUser._id, role: newUser.role });
+
         res.status(201).json({ 
             message: "User created successfully. Please check your email for verification code.", 
-            userId: newUser._id 
+            userId: newUser._id,
+            token,
+            user: {
+                id: newUser._id,
+                email: newUser.email,
+                username: newUser.username,
+                role: newUser.role,
+                is_verified: false,
+                verification_status: newUser.verificationStatus,
+                wantsToBeFellow: false,
+                fullName: newUser.fullName || '',
+                profilePhoto: newUser.profilePhotoUrl
+            }
         });
     }
   } catch (err) {

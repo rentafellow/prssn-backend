@@ -58,8 +58,8 @@ const initializeSocket = (server) => {
           return;
         }
 
-        if (booking.status !== "accepted") {
-          socket.emit("error", "Chat is only available for accepted bookings");
+        if (!["accepted", "completed", "cancelled"].includes(booking.status)) {
+          socket.emit("error", "Chat is not available for this booking status");
           return;
         }
 
@@ -69,6 +69,10 @@ const initializeSocket = (server) => {
         // Load previous messages
         const messages = await Message.find({ bookingId }).sort({ createdAt: 1 });
         socket.emit("previous_messages", messages);
+
+        if (booking.status === 'cancelled' || booking.status === 'completed') {
+            socket.emit("session_cancelled");
+        }
 
       } catch (error) {
         console.error("Error joining room:", error);
@@ -101,6 +105,11 @@ const initializeSocket = (server) => {
         console.error("Error sending message:", error);
         socket.emit("error", "Server error while sending message");
       }
+    });
+
+    socket.on("cancel_session", ({ bookingId }) => {
+      // Broadcast to all users in the room
+      io.to(bookingId).emit("session_cancelled");
     });
 
     socket.on("disconnect", () => {

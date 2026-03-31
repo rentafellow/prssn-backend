@@ -73,7 +73,24 @@ export const verifyEmailOtp = async (req, res) => {
     user.otpExpires = undefined;
     await user.save();
 
-    res.status(200).json({ message: "Email verified successfully" });
+    const { generateToken } = await import("../utils/token.js");
+    const token = generateToken({ userId: user._id, role: user.role });
+
+    res.status(200).json({ 
+        message: "Email verified successfully",
+        token,
+        user: {
+            id: user._id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            is_verified: true,
+            verification_status: user.verificationStatus,
+            wantsToBeFellow: user.role === 'companion',
+            fullName: user.fullName || '',
+            profilePhoto: user.profilePhotoUrl
+        }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error verifying OTP" });

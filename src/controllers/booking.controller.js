@@ -155,3 +155,30 @@ export const getBookingById = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch booking details." });
     }
 };
+
+export const cancelBooking = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        
+        const booking = await Booking.findById(id);
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found." });
+        }
+        
+        const isCompanion = booking.companionId.toString() === userId.toString();
+        const isRequester = booking.requesterId.toString() === userId.toString();
+        
+        if (!isCompanion && !isRequester) {
+            return res.status(403).json({ message: "Not authorized to cancel this session." });
+        }
+        
+        booking.status = 'cancelled';
+        await booking.save();
+        
+        res.status(200).json({ message: "Session cancelled.", booking });
+    } catch (error) {
+        console.error("Cancel Booking Error:", error);
+        res.status(500).json({ message: "Failed to cancel session." });
+    }
+};

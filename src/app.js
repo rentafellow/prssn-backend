@@ -12,6 +12,7 @@ import fellowsRoutes from "./routes/fellows.routes.js";
 import adminRoutes from "./routes/admin.route.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.use("/api/companions", fellowsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 
 

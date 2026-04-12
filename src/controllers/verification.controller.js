@@ -73,6 +73,8 @@ export const verifyEmailOtp = async (req, res) => {
     user.otpExpires = undefined;
     await user.save();
 
+    const isVerified = user.role === 'superadmin' || user.verificationStatus === 'verified';
+
     const { generateToken } = await import("../utils/token.js");
     const token = generateToken({ userId: user._id, role: user.role });
 
@@ -84,7 +86,7 @@ export const verifyEmailOtp = async (req, res) => {
             email: user.email,
             username: user.username,
             role: user.role,
-            is_verified: true,
+            is_verified: isVerified,
             verification_status: user.verificationStatus,
             wantsToBeFellow: user.role === 'companion',
             fullName: user.fullName || '',

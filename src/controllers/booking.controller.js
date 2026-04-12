@@ -1,6 +1,7 @@
 
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 export const createBooking = async (req, res) => {
     try {
@@ -72,6 +73,15 @@ export const createBooking = async (req, res) => {
 
         await newBooking.save();
 
+        const requester = await User.findById(requesterId);
+        const requesterName = requester ? (requester.fullName || requester.username || 'Someone') : 'Someone';
+
+        await Notification.create({
+            userId: companionId,
+            type: 'booking_request',
+            message: `${requesterName} has sent you a booking request.`
+        });
+
         res.status(201).json({ message: "Booking request sent successfully!", booking: newBooking });
     } catch (error) {
         console.error("Create Booking Error:", error);
@@ -131,6 +141,27 @@ export const updateBookingStatus = async (req, res) => {
 
         booking.status = status;
         await booking.save();
+
+        if (status === 'accepted') {
+            const requester = await User.findById(booking.requesterId);
+            const requesterName = requester ? (requester.fullName || requester.username || 'Someone') : 'Someone';
+            
+            // Notify the companion (as per prompt example)
+            await Notification.create({
+                userId: userId, // Companion
+                type: 'booking_accepted',
+                message: `You have accepted the booking from ${requesterName}.`
+            });
+            
+            // Notify the requester
+            const companion = await User.findById(userId);
+            const companionName = companion ? (companion.fullName || companion.username || 'A Companion') : 'A Companion';
+            await Notification.create({
+                userId: booking.requesterId, // Requester
+                type: 'booking_accepted',
+                message: `${companionName} has accepted your booking request.`
+            });
+        }
 
         res.status(200).json({ message: `Booking ${status} successfully.`, booking });
     } catch (error) {

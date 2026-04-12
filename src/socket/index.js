@@ -4,6 +4,16 @@ import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import Message from "../models/Message.js";
 
+/**
+ * Utility to mask any continuous sequence of 10 or more digits
+ * It replaces the digits with 10 dots.
+ */
+function maskPhoneNumber(text) {
+  if (!text) return text;
+  return text.replace(/\d{10,}/g, '••••••••••');
+}
+
+
 const initializeSocket = (server) => {
   const allowedOrigins = process.env.FRONTEND_URL 
     ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
@@ -68,7 +78,17 @@ const initializeSocket = (server) => {
 
         // Load previous messages
         const messages = await Message.find({ bookingId }).sort({ createdAt: 1 });
-        socket.emit("previous_messages", messages);
+        
+        // Mask messages where the current user is the receiver
+        const processedMessages = messages.map(msg => {
+            const messageObj = msg.toObject ? msg.toObject() : msg;
+            if (messageObj.senderId.toString() !== socket.user.id.toString()) {
+                messageObj.content = maskPhoneNumber(messageObj.content);
+            }
+            return messageObj;
+        });
+
+        socket.emit("previous_messages", processedMessages);
 
         if (booking.status === 'cancelled' || booking.status === 'completed') {
             socket.emit("session_cancelled");
@@ -99,8 +119,17 @@ const initializeSocket = (server) => {
 
         await newMessage.save();
 
-        // Broadcast to the room
-        io.to(bookingId).emit("receive_message", newMessage);
+        // Echo the original unmasked message back to the sender
+        socket.emit("receive_message", newMessage);
+
+        // Apply masking for the receiver
+        const maskedMessageObj = {
+            ...(newMessage.toObject ? newMessage.toObject() : newMessage),
+            content: maskPhoneNumber(newMessage.content)
+        };
+
+        // Send the masked message to everyone else in the room (the receiver)
+        socket.to(bookingId).emit("receive_message", maskedMessageObj);
       } catch (error) {
         console.error("Error sending message:", error);
         socket.emit("error", "Server error while sending message");

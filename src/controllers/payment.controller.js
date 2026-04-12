@@ -3,6 +3,7 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
@@ -53,6 +54,7 @@ export const createPaymentIntent = async (req, res) => {
                         orderId: existingOrder.id,
                         amount: existingOrder.amount,
                         currency: existingOrder.currency,
+                        keyId: process.env.RAZORPAY_KEY_ID
                     });
                 }
             } catch (fetchErr) {
@@ -81,7 +83,8 @@ export const createPaymentIntent = async (req, res) => {
         res.status(200).json({
             orderId: order.id,
             amount: amountInPaise,
-            currency: 'INR'
+            currency: 'INR',
+            keyId: process.env.RAZORPAY_KEY_ID
         });
 
     } catch (error) {
@@ -127,6 +130,13 @@ export const verifyPayment = async (req, res) => {
         booking.razorpaySignature = razorpaySignature;
         booking.amountPaid = payment.amount / 100;
         await booking.save();
+
+        const refId = booking._id.toString().slice(-6).toUpperCase();
+        await Notification.create({
+            userId: booking.companionId,
+            type: 'payment_completed',
+            message: `Payment received for booking #${refId}.`
+        });
 
         res.status(200).json({ message: "Payment verified successfully.", booking });
 

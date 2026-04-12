@@ -386,6 +386,8 @@ export const getSuperAdminAnalytics = async (req, res) => {
 
         const [
             totalUsers,
+            verifiedUsers,
+            unverifiedUsers,
             totalFellows,
             verifiedFellows,
             pendingFellows,
@@ -395,6 +397,8 @@ export const getSuperAdminAnalytics = async (req, res) => {
             totalDeleted // New
         ] = await Promise.all([
             User.countDocuments({ role: 'user' }), // Pure users
+            User.countDocuments({ role: 'user', isEmailVerified: true }), // Verified pure users
+            User.countDocuments({ role: 'user', isEmailVerified: { $ne: true } }), // Pending pure users
             User.countDocuments({ role: 'companion' }),
             User.countDocuments({ role: 'companion', verificationStatus: 'verified' }),
             User.countDocuments({ role: 'companion', verificationStatus: 'pending' }),
@@ -407,8 +411,8 @@ export const getSuperAdminAnalytics = async (req, res) => {
         const stats = {
             totalUsers,
             totalFellows,
-            totalVerified: verifiedFellows,
-            totalUnverified: pendingFellows,
+            totalVerified: verifiedUsers,
+            totalUnverified: unverifiedUsers,
             activeToday,
             totalAdmins,
             totalUnverifiedAdmins: unverifiedAdmins,

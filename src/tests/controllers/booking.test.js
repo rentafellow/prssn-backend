@@ -22,6 +22,12 @@ vi.mock('../../models/User.js', () => {
   };
 });
 
+vi.mock('../../models/Notification.js', () => ({
+  default: {
+    create: vi.fn().mockResolvedValue({})
+  }
+}));
+
 describe('Booking Controller', () => {
   let req;
   let res;

@@ -3,15 +3,9 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import Message from "../models/Message.js";
+import { maskPhoneNumber } from "../utils/maskPhoneNumber.js";
 
-/**
- * Utility to mask any continuous sequence of 10 or more digits
- * It replaces the digits with 10 dots.
- */
-function maskPhoneNumber(text) {
-  if (!text) return text;
-  return text.replace(/\d{10,}/g, '••••••••••');
-}
+const MAX_MESSAGE_LENGTH = 1000;
 
 
 const initializeSocket = (server) => {
@@ -102,10 +96,21 @@ const initializeSocket = (server) => {
 
     socket.on("send_message", async ({ bookingId, message }) => {
       try {
-        if (!message || !message.trim()) return;
+        if (typeof message !== 'string' || !message.trim()) return;
 
-        // Verify booking status again before saving
-        const booking = await Booking.findById(bookingId);
+        if (message.length > MAX_MESSAGE_LENGTH) {
+          socket.emit("error", `Message exceeds ${MAX_MESSAGE_LENGTH} character limit.`);
+          return;
+        }
+
+        const isParticipant =
+          socket.rooms.has(bookingId);
+        if (!isParticipant) {
+          socket.emit("error", "You must join the room before sending messages.");
+          return;
+        }
+
+        const booking = await Booking.findById(bookingId).select('status requesterId companionId');
         if (!booking || booking.status !== 'accepted') {
              socket.emit("error", "Cannot send message. Booking is not active.");
              return;
@@ -114,7 +119,7 @@ const initializeSocket = (server) => {
         const newMessage = new Message({
           bookingId,
           senderId: socket.user.id,
-          content: message,
+          content: message.trim(),
         });
 
         await newMessage.save();

@@ -2,6 +2,8 @@
 import Booking from '../models/Booking.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import Message from '../models/Message.js';
+import { maskPhoneNumber } from '../utils/maskPhoneNumber.js';
 
 export const createBooking = async (req, res) => {
     try {
@@ -173,6 +175,8 @@ export const updateBookingStatus = async (req, res) => {
 export const getBookingById = async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = req.user.id;
+
         const booking = await Booking.findById(id)
             .populate('requesterId', 'fullName profilePhotoUrl')
             .populate('companionId', 'fullName profilePhotoUrl');
@@ -180,10 +184,70 @@ export const getBookingById = async (req, res) => {
         if (!booking) {
             return res.status(404).json({ message: "Booking not found." });
         }
+
+        const requesterIdStr = (booking.requesterId?._id || booking.requesterId).toString();
+        const companionIdStr = (booking.companionId?._id || booking.companionId).toString();
+        const isParticipant = requesterIdStr === userId.toString() || companionIdStr === userId.toString();
+
+        if (!isParticipant) {
+            return res.status(403).json({ message: "Not authorized to view this booking." });
+        }
+
         res.status(200).json(booking);
     } catch (error) {
         console.error("Get Booking Error:", error);
         res.status(500).json({ message: "Failed to fetch booking details." });
+    }
+};
+
+export const getBookingMessages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+        const before = req.query.before ? new Date(req.query.before) : null;
+
+        const booking = await Booking.findById(id).select('requesterId companionId status');
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found." });
+        }
+
+        const isParticipant =
+            booking.requesterId.toString() === userId.toString() ||
+            booking.companionId.toString() === userId.toString();
+
+        if (!isParticipant) {
+            return res.status(403).json({ message: "Not authorized to view this chat." });
+        }
+
+        const query = { bookingId: id };
+        if (before && !isNaN(before.getTime())) {
+            query.createdAt = { $lt: before };
+        }
+
+        const messages = await Message.find(query)
+            .sort({ createdAt: -1 })
+            .limit(limit)
+            .lean();
+
+        const ordered = messages.reverse().map(msg => {
+            if (msg.senderId.toString() !== userId.toString()) {
+                msg.content = maskPhoneNumber(msg.content);
+            }
+            return msg;
+        });
+
+        const hasMore = messages.length === limit;
+
+        res.status(200).json({
+            messages: ordered,
+            hasMore,
+            oldest: ordered.length > 0 ? ordered[0].createdAt : null
+        });
+    } catch (error) {
+        console.error("Get Booking Messages Error:", error);
+        res.status(500).json({ message: "Failed to fetch messages." });
     }
 };
 

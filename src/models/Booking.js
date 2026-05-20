@@ -20,7 +20,7 @@ const BookingSchema = new mongoose.Schema({
     message: { type: String, default: '' },
     pricePerHour: { type: Number, required: true },
     startTime: { type: String, required: true },
-    duration: { type: String, enum: ['30', '60', '90'], required: true },
+    duration: { type: String, enum: ['30', '60', '90', '120', '180', '240'], required: true },
     scheduledDate: { type: Date, default: Date.now },
     paymentStatus: { 
         type: String, 

@@ -34,13 +34,8 @@ export const createPaymentIntent = async (req, res) => {
             return res.status(400).json({ message: "Booking is already paid." });
         }
 
-        // Calculate amount
-        const durationMap = {
-            '30': 0.5,
-            '60': 1,
-            '90': 1.5
-        };
-        const hours = durationMap[booking.duration] || 1;
+        // Calculate amount (duration stored as minutes string)
+        const hours = (parseInt(booking.duration, 10) || 60) / 60;
         const amount = booking.pricePerHour * hours;
         const amountInPaise = Math.round(amount * 100);
 

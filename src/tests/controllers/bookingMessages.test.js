@@ -141,7 +141,8 @@ describe('getBookingMessages', () => {
     mockBookingFindById({
       requesterId: REQUESTER_ID,
       companionId: COMPANION_ID,
-      status: 'accepted'
+      status: 'accepted',
+      paymentStatus: 'paid'
     });
     const req = { params: { id: BOOKING_ID }, user: { id: OUTSIDER_ID }, query: {} };
     const res = makeRes();
@@ -151,11 +152,46 @@ describe('getBookingMessages', () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
+  it('returns 403 when the requester has not paid yet', async () => {
+    mockBookingFindById({
+      requesterId: REQUESTER_ID,
+      companionId: COMPANION_ID,
+      status: 'accepted',
+      paymentStatus: 'pending'
+    });
+    const req = { params: { id: BOOKING_ID }, user: { id: REQUESTER_ID }, query: {} };
+    const res = makeRes();
+
+    await getBookingMessages(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('Payment is required')
+    }));
+  });
+
+  it('allows the companion in before payment (they are owed the money)', async () => {
+    mockBookingFindById({
+      requesterId: REQUESTER_ID,
+      companionId: COMPANION_ID,
+      status: 'accepted',
+      paymentStatus: 'pending'
+    });
+    mockMessagesFind([]);
+    const req = { params: { id: BOOKING_ID }, user: { id: COMPANION_ID }, query: {} };
+    const res = makeRes();
+
+    await getBookingMessages(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('masks phone numbers in messages from the other party but not own messages', async () => {
     mockBookingFindById({
       requesterId: REQUESTER_ID,
       companionId: COMPANION_ID,
-      status: 'accepted'
+      status: 'accepted',
+      paymentStatus: 'paid'
     });
 
     const messages = [
@@ -183,7 +219,8 @@ describe('getBookingMessages', () => {
     mockBookingFindById({
       requesterId: REQUESTER_ID,
       companionId: COMPANION_ID,
-      status: 'accepted'
+      status: 'accepted',
+      paymentStatus: 'paid'
     });
 
     const newest = { _id: 'newest', senderId: REQUESTER_ID, content: 'c', createdAt: new Date('2026-04-26T10:02:00Z') };
@@ -206,7 +243,8 @@ describe('getBookingMessages', () => {
     mockBookingFindById({
       requesterId: REQUESTER_ID,
       companionId: COMPANION_ID,
-      status: 'accepted'
+      status: 'accepted',
+      paymentStatus: 'paid'
     });
 
     const sortMock = vi.fn().mockReturnValue({

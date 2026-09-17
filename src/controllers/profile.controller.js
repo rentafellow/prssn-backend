@@ -1,6 +1,7 @@
 
 import User from '../models/User.js';
 import Admin from '../models/Admin.js';
+import { invalidateCompanionsCache } from './fellows.controller.js';
 
 export const getProfile = async (req, res) => {
     try {
@@ -244,7 +245,12 @@ export const onboardCompanion = async (req, res) => {
         const user = await User.findByIdAndUpdate(userId, updateData, { new: true });
 
         console.log(`Successfully onboarded companion ${userId}`);
-        res.status(201).json({ 
+
+        // Covers re-onboarding by an already-verified companion, whose listed
+        // details would otherwise stay stale.
+        invalidateCompanionsCache();
+
+        res.status(201).json({
             message: "Companion profile submitted successfully! Your account is under review.",
             user: {
                 id: user._id,
@@ -421,6 +427,12 @@ export const updateProfile = async (req, res) => {
         }
         
         // Companion and NormalUser models are deprecated, so no need to update them.
+
+        // Name, photo, price, tags and availability all appear in the public
+        // listing, so a companion's edit must be reflected immediately.
+        if (user.role === 'companion') {
+            invalidateCompanionsCache();
+        }
 
         res.status(200).json({ message: "Profile updated successfully" });
     } catch (error) {

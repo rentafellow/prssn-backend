@@ -16,6 +16,13 @@ import notificationRoutes from "./routes/notification.routes.js";
 
 const app = express();
 
+// The app runs behind one reverse-proxy hop (Render's load balancer). Without
+// this, req.ip is always the proxy's address, so the rate limiter puts EVERY
+// user into a single bucket and the whole site locks out after ~100 requests.
+// The value 1 trusts exactly one hop, so a client cannot spoof its identity by
+// sending its own X-Forwarded-For header.
+app.set('trust proxy', 1);
+
 // Production: specific origin with environment variable fallback
 const allowedOrigins = process.env.FRONTEND_URL 
   ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
@@ -74,12 +81,6 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
-
-
-
-app.get("/debug-sentry", function mainHandler(req, res) {
-  throw new Error("My first Sentry error!");
-});
 
 // 404 Handler
 app.use((req, res, next) => {

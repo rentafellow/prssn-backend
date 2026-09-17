@@ -22,6 +22,21 @@ export const createBooking = async (req, res) => {
             return res.status(400).json({ message: "Date and Time are required." });
         }
 
+        // The requester must be a verified member before they can meet anyone.
+        // This was previously enforced only in the browser, so a direct API call
+        // let an unvetted account book a real meetup.
+        const requester = await User.findById(requesterId);
+        if (!requester) {
+            return res.status(404).json({ message: "Account not found." });
+        }
+        const requesterVerified =
+            requester.role === 'superadmin' || requester.verificationStatus === 'verified';
+        if (!requesterVerified) {
+            return res.status(403).json({
+                message: "Please complete your verification before booking a companion."
+            });
+        }
+
         // Fetch companion
         const companion = await User.findById(companionId);
         if (!companion || companion.role !== 'companion') {
@@ -75,8 +90,7 @@ export const createBooking = async (req, res) => {
 
         await newBooking.save();
 
-        const requester = await User.findById(requesterId);
-        const requesterName = requester ? (requester.fullName || requester.username || 'Someone') : 'Someone';
+        const requesterName = requester.fullName || requester.username || 'Someone';
 
         await Notification.create({
             userId: companionId,
@@ -208,7 +222,7 @@ export const getBookingMessages = async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
         const before = req.query.before ? new Date(req.query.before) : null;
 
-        const booking = await Booking.findById(id).select('requesterId companionId status');
+        const booking = await Booking.findById(id).select('requesterId companionId status paymentStatus');
         if (!booking) {
             return res.status(404).json({ message: "Booking not found." });
         }
@@ -219,6 +233,13 @@ export const getBookingMessages = async (req, res) => {
 
         if (!isParticipant) {
             return res.status(403).json({ message: "Not authorized to view this chat." });
+        }
+
+        // Same paywall as the socket join — otherwise chat history is readable
+        // over HTTP even when the socket refuses the room.
+        const isCompanion = booking.companionId.toString() === userId.toString();
+        if (!isCompanion && booking.paymentStatus !== 'paid') {
+            return res.status(403).json({ message: "Payment is required before entering this session." });
         }
 
         const query = { bookingId: id };

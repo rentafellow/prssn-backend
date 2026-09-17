@@ -46,6 +46,34 @@ describe('Booking Controller', () => {
   });
 
   describe('createBooking', () => {
+    // createBooking looks up the requester (to check they are verified) and then
+    // the companion. Resolve each id independently so tests control both.
+    const VERIFIED_REQUESTER = {
+      _id: 'requesterId123',
+      role: 'user',
+      verificationStatus: 'verified',
+      username: 'requester1'
+    };
+    const mockUsers = (companion, requester = VERIFIED_REQUESTER) => {
+      User.findById.mockImplementation((id) =>
+        Promise.resolve(id === 'requesterId123' ? requester : companion)
+      );
+    };
+
+    it('should return 403 if the requester is not verified', async () => {
+      req.body = { companionId: 'companion123', scheduledDate: '2026-10-10', startTime: '10:00' };
+      mockUsers({ _id: 'companion123', role: 'companion' }, {
+        _id: 'requesterId123', role: 'user', verificationStatus: 'pending'
+      });
+
+      await createBooking(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('verification')
+      }));
+    });
+
     it('should return 400 if companionId is missing', async () => {
       req.body = { scheduledDate: '2026-10-10', startTime: '10:00' };
       
@@ -66,10 +94,10 @@ describe('Booking Controller', () => {
 
     it('should return 404 if companion is not found or not a companion role', async () => {
       req.body = { companionId: 'companion123', scheduledDate: '2026-10-10', startTime: '10:00' };
-      User.findById.mockResolvedValue(null);
-      
+      mockUsers(null);
+
       await createBooking(req, res);
-      
+
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ message: "Companion not found." });
     });
@@ -83,7 +111,7 @@ describe('Booking Controller', () => {
         pricePerHour: 100,
         availability: { saturday: false } // Not available Saturday
       };
-      User.findById.mockResolvedValue(companion);
+      mockUsers(companion);
       
       await createBooking(req, res);
       
@@ -103,7 +131,7 @@ describe('Booking Controller', () => {
         endTime: '18:00',
         availability: { saturday: true }
       };
-      User.findById.mockResolvedValue(companion);
+      mockUsers(companion);
       
       await createBooking(req, res);
       

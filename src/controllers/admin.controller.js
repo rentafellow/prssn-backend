@@ -4,6 +4,7 @@ import Admin from "../models/Admin.js";
 import Booking from "../models/Booking.js";
 import DeletedAccount from "../models/DeletedAccount.js";
 import { hashPassword } from "../utils/hash.js";
+import { invalidateCompanionsCache } from "./fellows.controller.js";
 
 // Create Admin (Super Admin only)
 export const createAdmin = async (req, res) => {
@@ -287,12 +288,15 @@ export const verifyUser = async (req, res) => {
         return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ 
-        message: `User ${status}`, 
+    // A verification decision changes who is publicly listed — show it immediately.
+    invalidateCompanionsCache();
+
+    res.status(200).json({
+        message: `User ${status}`,
         user: {
             id: user._id,
             verification_status: user.verificationStatus
-        } 
+        }
     });
   } catch (err) {
     console.error("VerifyUser Error:", err);
@@ -530,7 +534,10 @@ export const deleteUser = async (req, res) => {
         // 4. Clean up MongoDB detail records
         await Admin.deleteOne({ userId: id }); // Only if user was admin
 
-        res.status(200).json({ 
+        // A deleted companion must disappear from the public listing at once.
+        invalidateCompanionsCache();
+
+        res.status(200).json({
             message: "User deleted and archived successfully",
             deletedUserId: id
         });

@@ -16,3 +16,17 @@ export const authMiddleware = (req, res, next) => {
     res.status(401).json({ message: "Invalid token" });
   }
 };
+
+/**
+ * Role guard. Use after authMiddleware.
+ * Keeps authorization at the route definition so it cannot be forgotten
+ * inside a controller body.
+ *
+ *   router.get("/stats", authMiddleware, requireRole('admin', 'superadmin'), handler)
+ */
+export const requireRole = (...roles) => (req, res, next) => {
+  if (!req.user || !roles.includes(req.user.role)) {
+    return res.status(403).json({ message: "Access denied" });
+  }
+  next();
+};

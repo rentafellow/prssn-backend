@@ -10,10 +10,9 @@ import { generateToken } from "../utils/token.js";
  */
 export const login = async (req, res) => {
   try {
-    console.log("LOGIN REQUEST BODY:", req.body);
+    // Never log req.body or `password` here — these logs are retained by the
+    // host and forwarded to Sentry, which would expose live credentials.
     const { email: inputIdentifier, password } = req.body; // Can be email or username
-    console.log("Parsed identifier:", inputIdentifier, "Length:", inputIdentifier?.length);
-    console.log("Parsed password:", password, "Length:", password?.length);
 
     if (!inputIdentifier || !password) {
         return res.status(400).json({ message: "Email/Username and password are required" });

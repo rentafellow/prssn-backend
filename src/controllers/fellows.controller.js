@@ -2,26 +2,48 @@
 
 import User from '../models/User.js';
 
-// Simple in-memory cache for companion listings
-let companionsCache = null;
-let cacheTimestamp = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+/**
+ * In-memory cache for companion listings.
+ *
+ * Keyed by page+limit: a single shared slot meant the first caller's page size
+ * was served to everyone.
+ *
+ * NOTE: this is per-process. With more than one server instance the caches
+ * diverge and users see different listings depending on which instance answers.
+ * Move to Redis before scaling out (see prssn-document R14).
+ */
+const companionsCache = new Map();
+const CACHE_DURATION = 60 * 1000; // 1 minute
+
+/**
+ * Drop cached companion listings.
+ *
+ * Must be called by anything that changes who appears in the list or what they
+ * look like: verification decisions, companion onboarding, profile edits and
+ * account deletion. Without this a newly approved companion stays invisible
+ * until the entry expires.
+ */
+export const invalidateCompanionsCache = () => {
+    companionsCache.clear();
+};
 
 /**
  * Fetch all verified companions with pagination and caching
  */
 export const getAllCompanions = async (req, res) => {
     try {
-        // Check cache first
-        const now = Date.now();
-        if (companionsCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
-            return res.status(200).json(companionsCache);
-        }
-
         // Pagination support (optional, for future use)
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 100; // Default to 100, but allow override
         const skip = (page - 1) * limit;
+
+        // Check cache first — scoped to this exact page/limit combination
+        const cacheKey = `${page}:${limit}`;
+        const now = Date.now();
+        const cached = companionsCache.get(cacheKey);
+        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+            return res.status(200).json(cached.data);
+        }
 
         // Optimized query with lean() for faster results
         const companions = await User.find({ 
@@ -60,8 +82,7 @@ export const getAllCompanions = async (req, res) => {
         }));
 
         // Update cache
-        companionsCache = mapped;
-        cacheTimestamp = now;
+        companionsCache.set(cacheKey, { data: mapped, timestamp: now });
 
         res.status(200).json(mapped);
     } catch (error) {

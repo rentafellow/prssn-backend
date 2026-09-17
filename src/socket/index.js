@@ -67,6 +67,15 @@ const initializeSocket = (server) => {
           return;
         }
 
+        // The paywall was previously enforced only by the /session page, so a
+        // requester could open a socket straight to an unpaid booking and chat
+        // for free. The companion is exempt: they are owed the money, not paying it.
+        const isCompanion = booking.companionId.toString() === socket.user.id;
+        if (!isCompanion && booking.paymentStatus !== 'paid') {
+          socket.emit("error", "Payment is required before entering this session.");
+          return;
+        }
+
         socket.join(bookingId);
         console.log(`User ${socket.user.id} joined room ${bookingId}`);
 

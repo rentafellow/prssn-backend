@@ -12,10 +12,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Per-environment folder so testing uploads never mix with production ones
+// in the same Cloudinary cloud. Production keeps the original default.
+const uploadFolder = process.env.CLOUDINARY_FOLDER || 'prsnn-verification';
+
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'prsnn-verification',
+    folder: uploadFolder,
     allowed_formats: ['jpg', 'png', 'jpeg'],
   },
 });

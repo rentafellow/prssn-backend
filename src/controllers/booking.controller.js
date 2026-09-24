@@ -22,20 +22,11 @@ export const createBooking = async (req, res) => {
             return res.status(400).json({ message: "Date and Time are required." });
         }
 
-        // The requester must be a verified member before they can meet anyone.
-        // This was previously enforced only in the browser, so a direct API call
-        // let an unvetted account book a real meetup.
         const requester = await User.findById(requesterId);
         if (!requester) {
             return res.status(404).json({ message: "Account not found." });
         }
-        const requesterVerified =
-            requester.role === 'superadmin' || requester.verificationStatus === 'verified';
-        if (!requesterVerified) {
-            return res.status(403).json({
-                message: "Please complete your verification before booking a companion."
-            });
-        }
+        // Verification check removed as per requirements
 
         // Fetch companion
         const companion = await User.findById(companionId);

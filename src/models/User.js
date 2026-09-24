@@ -99,7 +99,7 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Add indexes for better query performance
-UserSchema.index({ role: 1, verificationStatus: 1 }); // For fetching verified companions
+UserSchema.index({ role: 1, verificationStatus: 1, createdAt: -1 }); // For fetching verified companions efficiently with sort
 UserSchema.index({ city: 1 }); // For city-based filtering
 UserSchema.index({ tags: 1 }); // For tag-based filtering
 UserSchema.index({ email: 1 }, { unique: true }); // Unique index for email

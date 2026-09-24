@@ -415,6 +415,8 @@ export const getSuperAdminAnalytics = async (req, res) => {
         const stats = {
             totalUsers,
             totalFellows,
+            verifiedFellows,
+            pendingFellows,
             totalVerified: verifiedUsers,
             totalUnverified: unverifiedUsers,
             activeToday,

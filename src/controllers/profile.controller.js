@@ -121,8 +121,8 @@ export const onboardBasic = async (req, res) => {
         user.city = city;
         user.area = area;
         
-        // IMPORTANT: Set status to pending so it shows up in Admin Dashboard
-        user.verificationStatus = 'pending'; 
+        // IMPORTANT: Basic users are automatically verified
+        user.verificationStatus = 'verified'; 
         
         if (profilePhoto) user.profilePhotoUrl = profilePhoto;
         if (idProofFront) user.idProofFrontUrl = idProofFront;

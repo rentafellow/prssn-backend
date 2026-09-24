@@ -13,6 +13,7 @@ import adminRoutes from "./routes/admin.route.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import publicRoutes from "./routes/public.routes.js";
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/public", publicRoutes);
 
 // 404 Handler
 app.use((req, res, next) => {
